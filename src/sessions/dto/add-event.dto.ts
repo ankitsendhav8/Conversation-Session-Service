@@ -1,13 +1,9 @@
-import { IsString, IsOptional, IsObject, IsIn, IsDateString,MinLength } from 'class-validator';
+import { IsString, IsOptional, IsObject, IsIn, IsDateString, MinLength } from 'class-validator';
 
 export class AddEventDto {
-  @IsOptional()
+  @MinLength(1, { message: 'eventId is required' })
   @IsString()
-  eventId?: string;
-
-  @IsString()
-  @MinLength(1, { message: 'sessionId is required' })
-  sessionId: string;
+  eventId: string;
 
   @IsString()
   @IsIn(['user_speech', 'bot_speech', 'system'])
@@ -19,5 +15,5 @@ export class AddEventDto {
 
   @IsOptional()
   @IsDateString()
-  timestamp?: Date = new Date();
+  timestamp?: Date;
 }

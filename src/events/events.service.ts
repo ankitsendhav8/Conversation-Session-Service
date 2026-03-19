@@ -1,21 +1,18 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import { EventsRepository } from './events.repository';
-import { v4 as uuidv4 } from 'uuid';
 import { AddEventDto } from '../sessions/dto/add-event.dto';
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly eventsRepository: EventsRepository) {}
+  constructor(private readonly eventsRepository: EventsRepository) { }
 
   async createEvent(data: AddEventDto & { sessionId: string }) {
-    const eventId = data.eventId ?? uuidv4();
+    const eventId = data.eventId;
     const sessionId = data.sessionId;
-
     // Idempotency: return existing event if duplicate (sessionId + eventId)
     const existing =
       await this.eventsRepository.findBySessionAndEventId(sessionId, eventId);
     if (existing) return existing;
-
     try {
       const eventData = {
         ...data,
@@ -34,6 +31,7 @@ export class EventsService {
             sessionId,
             eventId,
           );
+
         if (duplicate) return duplicate;
       }
       if (e?.name === 'ValidationError') {

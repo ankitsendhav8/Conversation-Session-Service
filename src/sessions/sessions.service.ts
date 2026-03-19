@@ -15,13 +15,13 @@ export class SessionsService {
   constructor(
     private readonly sessionsRepository: SessionsRepository,
     private readonly eventsService: EventsService,
-  ) {}
+  ) { }
 
   async createSession(dto: CreateSessionDto) {
     const { sessionId, language, metadata } = dto;
     const trimmedId = sessionId.trim();
     if (!trimmedId) {
-      throw new BadRequestException('sessionId is required');
+      throw new BadRequestException('Session Id is required');
     }
     return this.sessionsRepository.upsert(trimmedId, {
       sessionId: trimmedId,

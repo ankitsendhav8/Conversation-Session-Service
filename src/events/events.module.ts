@@ -3,10 +3,11 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Event, EventSchema } from './events.schema';
 import { EventsService } from './events.service';
 import { EventsRepository } from './events.repository';
+import { EventsIndexService } from './events-index.service';
 
 @Module({
   imports: [MongooseModule.forFeature([{ name: Event.name, schema: EventSchema }])],
-  providers: [EventsService, EventsRepository],
+  providers: [EventsService, EventsRepository, EventsIndexService],
   exports: [EventsService],
 })
 export class EventsModule { }
