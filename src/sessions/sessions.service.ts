@@ -1,9 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Session, SessionDocument } from './sessions.schema';
 import { Model } from 'mongoose';
 import { EventsService } from '../events/events.service';
-import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class SessionsService {
     constructor(
@@ -12,9 +11,12 @@ export class SessionsService {
         private eventsService: EventsService,
     ) { }
 
-    //  API to insert or update a new session
+    //  API to insert or update a new session (sessionId externally provided)
     async createSession(data: any) {
-        const sessionId = data.sessionId || uuidv4();
+        const sessionId = data?.sessionId;
+        if (!sessionId || typeof sessionId !== 'string' || !sessionId.trim()) {
+            throw new BadRequestException('sessionId is required');
+        }
         return this.sessionModel.findOneAndUpdate(
             { sessionId },
             {
@@ -65,7 +67,8 @@ export class SessionsService {
             { sessionId },
             {
                 $set: {
-                    status: sessionStatus
+                    status: sessionStatus,
+                    endedAt: sessionStatus === 'completed' ? new Date() : null,
                 },
             },
         );

@@ -8,10 +8,7 @@ export class Session {
   @Prop({ required: true, unique: true })
   sessionId: string;
 
-  @Prop({ required: true })
-  sessionName: string;
-
-  @Prop({required: true, default: 'initiated', enum: ['initiated', 'active', 'completed', 'failed'] })
+  @Prop({ required: true, default: 'initiated', enum: ['initiated', 'active', 'completed', 'failed'] })
   status: string;
 
   @Prop()
@@ -23,7 +20,7 @@ export class Session {
   @Prop({ default: null })
   endedAt: Date;
 
-  @Prop({ type: Object,optional: true })
+  @Prop({ type: Object, required: false })
   metadata: Record<string, any>;
 }
 

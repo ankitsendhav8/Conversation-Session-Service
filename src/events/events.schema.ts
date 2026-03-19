@@ -5,10 +5,10 @@ export type EventDocument = Event & Document;
 
 @Schema()
 export class Event {
-  @Prop({ required: true , unique: true})
+  @Prop({ required: true })
   eventId: string;
 
-  @Prop({ required: true , ref: 'Session' })
+  @Prop({ required: true, ref: 'Session' })
   sessionId: string;
 
   @Prop({ required: true, enum: ['user_speech', 'bot_speech', 'system'] })
@@ -22,4 +22,9 @@ export class Event {
 }
 
 export const EventSchema = SchemaFactory.createForClass(Event);
+
+// eventId unique per session (not globally)
+EventSchema.index({ sessionId: 1, eventId: 1 }, { unique: true });
+// Pagination: events by session ordered by timestamp
+EventSchema.index({ sessionId: 1, timestamp: 1 });
 

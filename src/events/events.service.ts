@@ -11,15 +11,23 @@ export class EventsService {
     ) { }
 
     async createEvent(data: any) {
+        const eventId = data.eventId ?? uuidv4();
+        const sessionId = data.sessionId;
+
+        // return existing event if duplicate (sessionId + eventId)
+        const existing = await this.eventModel.findOne({ sessionId, eventId });
+        if (existing) return existing;
+
         try {
-            const eventId = data.eventId ?? uuidv4();
             return await this.eventModel.create({ ...data, eventId });
         } catch (err: any) {
             if (err?.code === 11000) {
-                throw new ConflictException('Duplicate event');
+                // If another request inserted between our check and create
+                const duplicate = await this.eventModel.findOne({ sessionId, eventId });
+                if (duplicate) return duplicate;
             }
             if (err?.name === 'ValidationError') {
-                throw err; 
+                throw err;
             }
             throw new ConflictException('Failed to create event. Please try again.');
         }

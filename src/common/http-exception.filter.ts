@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
-const GENERIC_ERROR_MESSAGE = 'Something went wrong. Please try again later.';
+const GENERIC_ERROR_MESSAGE:string = 'Something went wrong. Please try again later.';
 
 interface MongooseValidationError extends Error {
     name: 'ValidationError';
