@@ -1,43 +1,51 @@
 import { Injectable, ConflictException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Event, EventDocument } from './events.schema';
-import { Model } from 'mongoose';
+import { EventsRepository } from './events.repository';
 import { v4 as uuidv4 } from 'uuid';
+import { AddEventDto } from '../sessions/dto/add-event.dto';
+
 @Injectable()
 export class EventsService {
-    constructor(
-        @InjectModel(Event.name)
-        private eventModel: Model<EventDocument>,
-    ) { }
+  constructor(private readonly eventsRepository: EventsRepository) {}
 
-    async createEvent(data: any) {
-        const eventId = data.eventId ?? uuidv4();
-        const sessionId = data.sessionId;
+  async createEvent(data: AddEventDto & { sessionId: string }) {
+    const eventId = data.eventId ?? uuidv4();
+    const sessionId = data.sessionId;
 
-        // return existing event if duplicate (sessionId + eventId)
-        const existing = await this.eventModel.findOne({ sessionId, eventId });
-        if (existing) return existing;
+    // Idempotency: return existing event if duplicate (sessionId + eventId)
+    const existing =
+      await this.eventsRepository.findBySessionAndEventId(sessionId, eventId);
+    if (existing) return existing;
 
-        try {
-            return await this.eventModel.create({ ...data, eventId });
-        } catch (err: any) {
-            if (err?.code === 11000) {
-                // If another request inserted between our check and create
-                const duplicate = await this.eventModel.findOne({ sessionId, eventId });
-                if (duplicate) return duplicate;
-            }
-            if (err?.name === 'ValidationError') {
-                throw err;
-            }
-            throw new ConflictException('Failed to create event. Please try again.');
-        }
+    try {
+      const eventData = {
+        ...data,
+        eventId,
+        sessionId,
+        timestamp: data.timestamp
+          ? new Date(data.timestamp)
+          : new Date(),
+      };
+      return await this.eventsRepository.create(eventData);
+    } catch (err: unknown) {
+      const e = err as { code?: number; name?: string };
+      if (e?.code === 11000) {
+        const duplicate =
+          await this.eventsRepository.findBySessionAndEventId(
+            sessionId,
+            eventId,
+          );
+        if (duplicate) return duplicate;
+      }
+      if (e?.name === 'ValidationError') {
+        throw err;
+      }
+      throw new ConflictException(
+        'Failed to create event. Please try again.',
+      );
     }
+  }
 
-    async getEvents(sessionId: string, limit: number, offset: number) {
-        return this.eventModel
-            .find({ sessionId })
-            .sort({ timestamp: 1 })
-            .skip(offset)
-            .limit(limit);
-    }
+  async getEvents(sessionId: string, limit: number, offset: number) {
+    return this.eventsRepository.findBySession(sessionId, limit, offset);
+  }
 }

@@ -3,8 +3,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { Session, SessionSchema } from './sessions.schema';
 import { SessionsController } from './sessions.controller';
 import { SessionsService } from './sessions.service';
+import { SessionsRepository } from './sessions.repository';
 import { EventsModule } from '../events/events.module';
-
 
 @Module({
   imports: [
@@ -12,6 +12,6 @@ import { EventsModule } from '../events/events.module';
     EventsModule,
   ],
   controllers: [SessionsController],
-  providers: [SessionsService]
+  providers: [SessionsService, SessionsRepository],
 })
-export class SessionsModule { }
+export class SessionsModule {}

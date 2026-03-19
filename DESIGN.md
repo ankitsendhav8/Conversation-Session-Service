@@ -2,14 +2,13 @@
 
 ## 1. How did you ensure idempotency?
 
-### Create/Upsert Session (POST /sessions)
+### Create or Upsert Session
 
-- Uses MongoDB `findOneAndUpdate` with `upsert: true` and `$setOnInsert`.
 - If `sessionId` exists: no fields are updated (`$setOnInsert` only runs on insert), and the existing session is returned.
 - If `sessionId` does not exist: a new session is created.
-- Same request repeated multiple times yields the same result.
+- Same request repeated multiple times gives the same result.
 
-### Add Event (POST /sessions/:sessionId/events)
+### Add Event to Session
 
 - A compound unique index on `(sessionId, eventId)` enforces uniqueness per session.
 - Before insert: check if event exists; if so, return it (idempotent).
@@ -18,9 +17,10 @@
 
 ### Complete Session (POST /sessions/:sessionId/complete)
 
-- Uses `updateOne` to set `status: 'completed'` and `endedAt`.
-- Calling complete again updates the same document again without changing the logical outcome (already completed).
-- Idempotency could be improved by using `findOneAndUpdate` and returning the session instead of `updateOne`, so the response is always the same session document.
+- Dedicated endpoint that sets `status` to `completed` and `endedAt`.
+- Uses `findOneAndUpdate` with `returnDocument: 'after'` to return the session document.
+- If already completed: returns the existing session without updating (idempotent).
+- Calling complete multiple times yields the same response.
 
 ---
 
@@ -29,18 +29,19 @@
 ### Create Session
 
 - `findOneAndUpdate` with `upsert` is atomic.
-- Two concurrent requests with the same `sessionId`:
-  - First one inserts, the second finds the document and updates it (with no-op `$setOnInsert`).
-  - Both return the same session; one document is created.
+- Multiple concurrent requests with the same `sessionId`:
+  - First one inserts, rest finds the document and updates it (with no-op `$setOnInsert`).
+  - All return the same session; after one document is created.
 - Possible duplicate key errors if both try to insert at the same time; MongoDB’s upsert semantics handle this by retrying one operation as an update.
 
-### Add Event
+### Add Event to Session
 
-- Session existence is checked with `findOne` before inserting the event; a small TOCTOU window exists but is acceptable.
-- Duplicate `(sessionId, eventId)` inserts are rejected by the compound unique index; the second request finds and returns the existing event (idempotent).
+- Session existence is checked with `findOne` before inserting the event.
+- Duplicate `(sessionId, eventId)` inserts are rejected by the compound unique index; the second request finds and returns the existing event .
 - Event creation itself is atomic (`create` is a single insert).
+- If session if active or initiated than only event creation allowed.
 
-### Get Session & Complete Session
+### Get Session & Status update
 
 - Reads and updates are independent; no special coordination needed.
 - Concurrent completes for the same session both succeed but produce the same final state.
@@ -88,13 +89,6 @@
 
 ## 5. What did you intentionally keep out of scope, and why?
 
-| Out of scope              | Reason                                                                 |
-|---------------------------|------------------------------------------------------------------------|
-| Authentication/Authorization | PDF specifies no auth is required.                                |
-| Background jobs/queues    | PDF explicitly states no background jobs or queues.                    |
-| External services         | PDF requires keeping the solution self-contained.                      |
-| Repository layer          | Kept simple with services using Mongoose directly for a take-home.     |
-| DTOs and validation pipes | Kept minimal; would add `class-validator` DTOs in production.         |
-| Comprehensive test suite | Basic structure exists; full coverage would be a next step.            |
-| Rate limiting              | Not required for the assignment.                                      |
-| Logging/monitoring        | Basic error handling only; observability would come later.             |
+- **Authentication/Authorization** — Not mandatory per assignment; would require schema and middleware changes if added.
+- **Monitoring / Observability** — Basic error handling only; structured logging and metrics would be a next step.
+- **Rate limiting** — Not required for the assignment; would add at the edge or in middleware for production.

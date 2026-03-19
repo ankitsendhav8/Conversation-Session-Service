@@ -1,76 +1,76 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Session, SessionDocument } from './sessions.schema';
-import { Model } from 'mongoose';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
+import { SessionsRepository } from './sessions.repository';
 import { EventsService } from '../events/events.service';
+import { CreateSessionDto } from './dto/create-session.dto';
+import { AddEventDto } from './dto/add-event.dto';
+import { UpdateStatusDto } from './dto/update-status.dto';
+
 @Injectable()
 export class SessionsService {
-    constructor(
-        @InjectModel(Session.name)
-        private sessionModel: Model<SessionDocument>,
-        private eventsService: EventsService,
-    ) { }
+  constructor(
+    private readonly sessionsRepository: SessionsRepository,
+    private readonly eventsService: EventsService,
+  ) {}
 
-    //  API to insert or update a new session (sessionId externally provided)
-    async createSession(data: any) {
-        const sessionId = data?.sessionId;
-        if (!sessionId || typeof sessionId !== 'string' || !sessionId.trim()) {
-            throw new BadRequestException('sessionId is required');
-        }
-        return this.sessionModel.findOneAndUpdate(
-            { sessionId },
-            {
-                $setOnInsert: {
-                    ...data,
-                    sessionId,
-                    startedAt: new Date(),
-                },
-            },
-            { upsert: true, new: true },
-        );
+  async createSession(dto: CreateSessionDto) {
+    const { sessionId, language, metadata } = dto;
+    const trimmedId = sessionId.trim();
+    if (!trimmedId) {
+      throw new BadRequestException('sessionId is required');
     }
+    return this.sessionsRepository.upsert(trimmedId, {
+      sessionId: trimmedId,
+      language,
+      metadata,
+      status: 'initiated',
+    });
+  }
 
-    //  API to add a new event to a session
-    async addEvent(sessionId: string, event: any) {
-        const session = await this.sessionModel.findOne({ sessionId });
-        if (!session) throw new NotFoundException('Session not found.');
-        if (session && (session.status == 'active' || session.status == 'initiated')) {
-            return this.eventsService.createEvent({
-                ...event,
-                sessionId,
-            });
-        } else {
-            throw new ConflictException('You cannot add events to a completed or failed session.');
-        }
-
+  async addEvent(sessionId: string, dto: AddEventDto) {
+    const session = await this.sessionsRepository.findById(sessionId);
+    if (!session) throw new NotFoundException('Session not found.');
+    if (session.status !== 'active' && session.status !== 'initiated') {
+      throw new ConflictException(
+        'You cannot add events to a completed or failed session.',
+      );
     }
+    return this.eventsService.createEvent({
+      ...dto,
+      sessionId,
+      timestamp: dto.timestamp ? new Date(dto.timestamp) : new Date(),
+    });
+  }
 
-    //  API to get a session with its events
-    async getSession(sessionId: string, limit = 10, offset = 0) {
-        const session = await this.sessionModel.findOne({ sessionId });
-        if (!session) throw new NotFoundException('Session not found.');
-        const events = await this.eventsService.getEvents(
-            sessionId,
-            limit,
-            offset,
-        );
-        return { session, events };
-    }
+  async getSession(sessionId: string, limit = 10, offset = 0) {
+    const session = await this.sessionsRepository.findById(sessionId);
+    if (!session) throw new NotFoundException('Session not found.');
+    const events = await this.eventsService.getEvents(sessionId, limit, offset);
+    return { session, events };
+  }
 
-    //  API to Update the status of a session
-    async updateSessionStatus(sessionId: string, sessionStatus: string) {
-        const session = await this.sessionModel.findOne({ sessionId });
-        if (!session) throw new NotFoundException('Session not found.');
-        if (session && (session.status == 'completed' || session.status == 'failed'))
-            throw new ConflictException('You cannot update status of a completed or failed session.');
-        return this.sessionModel.updateOne(
-            { sessionId },
-            {
-                $set: {
-                    status: sessionStatus,
-                    endedAt: sessionStatus === 'completed' ? new Date() : null,
-                },
-            },
-        );
+  async completeSession(sessionId: string) {
+    const session = await this.sessionsRepository.findById(sessionId);
+    if (!session) throw new NotFoundException('Session not found.');
+    // Idempotent: if already completed, return existing session
+    if (session.status === 'completed') {
+      return session;
     }
+    return this.sessionsRepository.updateStatus(sessionId, 'completed');
+  }
+
+  async updateSessionStatus(sessionId: string, dto: UpdateStatusDto) {
+    const session = await this.sessionsRepository.findById(sessionId);
+    if (!session) throw new NotFoundException('Session not found.');
+    if (session.status === 'completed' || session.status === 'failed') {
+      throw new ConflictException(
+        'You cannot update status of a completed or failed session.',
+      );
+    }
+    return this.sessionsRepository.updateStatus(sessionId, dto.status);
+  }
 }
