@@ -32,11 +32,15 @@ export class SessionsService {
     async addEvent(sessionId: string, event: any) {
         const session = await this.sessionModel.findOne({ sessionId });
         if (!session) throw new NotFoundException('Session not found.');
-        if (session && session.status === 'completed') throw new ConflictException('Session is completed.You cannot add events to a completed session.');
-        return this.eventsService.createEvent({
-            ...event,
-            sessionId,
-        });
+        if (session && (session.status == 'active' || session.status == 'initiated')) {
+            return this.eventsService.createEvent({
+                ...event,
+                sessionId,
+            });
+        } else {
+            throw new ConflictException('You cannot add events to a completed or failed session.');
+        }
+
     }
 
     //  API to get a session with its events
@@ -51,14 +55,17 @@ export class SessionsService {
         return { session, events };
     }
 
-    //  API to complete a session
-    async completeSession(sessionId: string) {
+    //  API to Update the status of a session
+    async updateSessionStatus(sessionId: string, sessionStatus: string) {
+        const session = await this.sessionModel.findOne({ sessionId });
+        if (!session) throw new NotFoundException('Session not found.');
+        if (session && (session.status == 'completed' || session.status == 'failed'))
+            throw new ConflictException('You cannot update status of a completed or failed session.');
         return this.sessionModel.updateOne(
-            { sessionId, status: { $ne: 'completed' } },
+            { sessionId },
             {
                 $set: {
-                    status: 'completed',
-                    endedAt: new Date(),
+                    status: sessionStatus
                 },
             },
         );

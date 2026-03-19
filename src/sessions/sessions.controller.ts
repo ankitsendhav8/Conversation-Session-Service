@@ -2,7 +2,6 @@ import { Controller, Post, Get, Param, Body, Query } from '@nestjs/common';
 import { SessionsService } from './sessions.service';
 @Controller('sessions')
 export class SessionsController {
-
     constructor(private readonly sessionsService: SessionsService) { }
 
     @Post()
@@ -27,8 +26,8 @@ export class SessionsController {
         return this.sessionsService.getSession(sessionId, Number(limit) || 10, Number(offset) || 0);
     }
 
-    @Post(':sessionId/complete')
-    completeSession(@Param('sessionId') sessionId: string) {
-        return this.sessionsService.completeSession(sessionId);
+    @Post(':sessionId/:sessionStatus')
+    updateSessionStatus(@Param('sessionId') sessionId: string, @Param('sessionStatus') sessionStatus: string) {
+        return this.sessionsService.updateSessionStatus(sessionId, sessionStatus);
     }
 }

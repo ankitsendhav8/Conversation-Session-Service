@@ -62,19 +62,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
                               .message[0]
                         : (exceptionResponse as { message: string }).message
                     : exception.message;
-        } else if (
-            exception instanceof Error &&
-            (exception as MongooseValidationError).name === 'ValidationError'
-        ) {
-            status = HttpStatus.BAD_REQUEST;
-            message = formatMongooseValidationMessage(
-                exception as MongooseValidationError,
-            );
-            this.logger.warn(`Validation failed: ${message}`);
         } else {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
             message = GENERIC_ERROR_MESSAGE;
-
             this.logger.error(
                 `Unhandled exception: ${exception instanceof Error ? exception.message : String(exception)}`,
                 exception instanceof Error ? exception.stack : undefined,
