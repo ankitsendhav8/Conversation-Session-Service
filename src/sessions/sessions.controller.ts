@@ -18,6 +18,7 @@ export class SessionsController {
         return this.sessionsService.addEvent(sessionId, body);
     }
 
+    @Get(':sessionId')
     getSession(
         @Param('sessionId') sessionId: string,
         @Query('limit') limit: number,

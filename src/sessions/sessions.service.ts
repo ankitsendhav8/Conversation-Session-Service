@@ -1,12 +1,9 @@
-import {
-    Injectable,
-    NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Session, SessionDocument } from './sessions.schema';
 import { Model } from 'mongoose';
 import { EventsService } from '../events/events.service';
-
+import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class SessionsService {
     constructor(
@@ -17,11 +14,13 @@ export class SessionsService {
 
     //  API to insert or update a new session
     async createSession(data: any) {
+        const sessionId = data.sessionId || uuidv4();
         return this.sessionModel.findOneAndUpdate(
-            { sessionId: data.sessionId },
+            { sessionId },
             {
                 $setOnInsert: {
                     ...data,
+                    sessionId,
                     startedAt: new Date(),
                 },
             },
@@ -33,7 +32,7 @@ export class SessionsService {
     async addEvent(sessionId: string, event: any) {
         const session = await this.sessionModel.findOne({ sessionId });
         if (!session) throw new NotFoundException('Session not found.');
-
+        if (session && session.status === 'completed') throw new ConflictException('Session is completed.You cannot add events to a completed session.');
         return this.eventsService.createEvent({
             ...event,
             sessionId,

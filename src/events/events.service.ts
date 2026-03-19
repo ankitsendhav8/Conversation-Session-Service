@@ -2,7 +2,7 @@ import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Event, EventDocument } from './events.schema';
 import { Model } from 'mongoose';
-
+import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class EventsService {
     constructor(
@@ -12,12 +12,16 @@ export class EventsService {
 
     async createEvent(data: any) {
         try {
-            return await this.eventModel.create(data);
-        } catch (err) {
-            if (err.code === 11000) {
+            const eventId = data.eventId ?? uuidv4();
+            return await this.eventModel.create({ ...data, eventId });
+        } catch (err: any) {
+            if (err?.code === 11000) {
                 throw new ConflictException('Duplicate event');
             }
-            throw err;
+            if (err?.name === 'ValidationError') {
+                throw err; 
+            }
+            throw new ConflictException('Failed to create event. Please try again.');
         }
     }
 
